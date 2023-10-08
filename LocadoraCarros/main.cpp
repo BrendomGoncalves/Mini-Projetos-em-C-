@@ -2,6 +2,8 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <iomanip>
+#include <regex>
 // DEFINES
 #ifdef _WIN32
     #define LIMPAR "cls"
@@ -29,9 +31,19 @@ static void pausaTela();
 /**
  * @brief Função que guarda os dados do cliente no arquivo clientes.txt.
  * @param novo Objeto do tipo Cliente com dados do cliente.
+ * @param sobrescrever Variável do tipo boleana para controlar sobrescrita do arquivo.
 */
-static void salvarCliente(Cliente novo);
-static void lerCliente(string identificador, Cliente &cliente, vector<Aluguel> &historicoAlugueis);
+static void salvarCliente(Cliente novo, bool sobrescrever);
+/**
+ * @brief Função que recupera do arquivo todos os clientes salvos para um vector.
+ * @param clientesEditar Posição para um Vector vazio do tipo Cliente para armazenar os dados do arquivo.
+*/
+static void buscaClientes(vector<Cliente>& clientes);
+/**
+ * @brief Função que retorna o tamanho do maior nome entre os clientes.
+ * @param clientes Vector do tipo Cliente com os dados de todos os clientes cadastrados.
+*/
+static int maiorNome(vector<Cliente>& clientes);
 // CLASSES
 class Data {
     private:
@@ -130,6 +142,15 @@ class Usuario {
         string nome;
         string endereco;
         string telefone;
+    public:
+        static bool validarCPF(string& cpf) {
+            regex padrao("^\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}$");
+            return regex_match(cpf, padrao);
+        }
+        static bool validarTelefone(string& telefone) {
+            regex padrao("^\\(\\d{2}\\) \\d{5}-\\d{4}$"); // Exemplo: (13) 97456-7890
+            return regex_match(telefone, padrao);
+        }
 };
 class Cliente : Usuario{
     private:
@@ -207,16 +228,36 @@ class Cliente : Usuario{
             string cpf, nome, endereco, telefone, habilitacao;
             limparTela();
             cout << "** CADASTRO CLIENTE **" << endl;
-            cout << "Nome:";
+            cout << "Nome: ";
             cin.ignore();
             getline(cin, nome);
-            cout << "CPF:";
-            cin >> cpf;
-            cout << "Endereço:";
+            do{
+                cout << endl << "[modelo: XXX.XXX.XXX-XX]" << endl;
+                cout << "CPF: ";
+                cin >> cpf;
+                if(validarCPF(cpf)){
+                    break;
+                } else {
+                    cout << "CPF inválido!" << endl;
+                    pausaTela();
+                    limparTela();
+                }
+            }while(true);
+            cout << "Endereço: ";
             cin.ignore();
             getline(cin, endereco);
-            cout << "Telefone:";
-            cin >> telefone;
+            do{
+                cout << endl << "[modelo: (XX) XXXXX-XXXX]" << endl;
+                cout << "Telefone: ";
+                cin >> telefone;
+                if(validarTelefone(telefone)){
+                    break;
+                } else {
+                    cout << "Telefone inválido!" << endl;
+                    pausaTela();
+                    limparTela();
+                }
+            }while(true);
             cout << "Habilitação:";
             cin >> habilitacao;
             cliente.setCpf(cpf);
@@ -224,13 +265,168 @@ class Cliente : Usuario{
             cliente.setEndereco(endereco);
             cliente.setTelefone(telefone);
             cliente.setHabilitacao(habilitacao);
-            // TODO Chamar função para salvar cliente
-            cout << "Cliente cadastrado com sucesso!" << endl;
+            salvarCliente(cliente, false);
             pausaTela();
         }
-        static void editarCliente(){}
-        static void excluirCliente(){}
-        static void listarClientes(){}
+        static void editarCliente(){
+            string cpfEditar;
+            bool clienteEncontrado = false;
+            vector<Cliente> clientesDoArquivo;
+            limparTela();
+            cout << "** EDITAR CLIENTE **" << endl;
+            cout << "Digite o CPF do cliente: ";
+            cin >> cpfEditar;
+            buscaClientes(clientesDoArquivo);
+            cout << clientesDoArquivo.size() << endl;
+            if(clientesDoArquivo.size() > 0){
+                for(size_t i=0; i<clientesDoArquivo.size(); i++){
+                    if(clientesDoArquivo[i].getCpf() == cpfEditar){
+                        clienteEncontrado = true;
+                        int op = 0;
+                        string novo;
+                        do{
+                            cout << "** O QUE DESEJA EDITAR? **" << endl;
+                            cout << "1. Editar Nome" << endl;
+                            cout << "2. Editar Endereço" << endl;
+                            cout << "3. Editar Telefone" << endl;
+                            cout << "4. Editar Habilitação" << endl;
+                            cout << "========= 0. Sair =========" << endl << "> ";
+                            cin >> op;
+                            switch(op){
+                                case 1:
+                                    novo = "";
+                                    cout << "Mudar de " << clientesDoArquivo[i].getNome() << " para: ";
+                                    cin.ignore();
+                                    getline(cin, novo);
+                                    clientesDoArquivo[i].setNome(novo);
+                                    cout << "Nome alterado com sucesso!" << endl;
+                                    pausaTela();
+                                    break;
+                                case 2:
+                                    novo = "";
+                                    cout << "Mudar de " << clientesDoArquivo[i].getEndereco() << " para: ";
+                                    cin.ignore();
+                                    getline(cin, novo);
+                                    clientesDoArquivo[i].setEndereco(novo);
+                                    cout << "Endereço alterado com sucesso!" << endl;
+                                    pausaTela();
+                                    break;
+                                case 3:
+                                    novo = "";
+                                    do{
+                                        cout << endl << "[modelo: (XX) XXXXX-XXXX]" << endl;
+                                        cout << "Mudar de " << clientesDoArquivo[i].getTelefone() << " para: ";
+                                        cin >> novo;
+                                        if(validarTelefone(novo)){
+                                            break;
+                                        } else {
+                                            cout << "Telefone inválido!" << endl;
+                                            pausaTela();
+                                            limparTela();
+                                        }
+                                    }while(true);
+                                    clientesDoArquivo[i].setTelefone(novo);
+                                    cout << "Telefone alterado com sucesso!" << endl;
+                                    pausaTela();
+                                    break;
+                                case 4:
+                                    novo = "";
+                                    cout << "Mudar de " << clientesDoArquivo[i].getHabilitacao() << " para: ";
+                                    cin.ignore();
+                                    getline(cin, novo);
+                                    clientesDoArquivo[i].setHabilitacao(novo);
+                                    cout << "Habilitação alterada com sucesso!" << endl;
+                                    pausaTela();
+                                    break;
+                                case 0:
+                                    break;
+                            }
+                            if(op > 4 || op < 0){
+                                cout << "Opção inválida! Escolha 1, 2 ou 3" << endl;
+                                pausaTela();
+                            }
+                        }while(op != 0);
+                        break;
+                    }
+                }
+
+                salvarCliente(clientesDoArquivo[0], true);
+                if(clientesDoArquivo.size() > 1){
+                    for(size_t i=1; i<clientesDoArquivo.size(); i++){
+                        salvarCliente(clientesDoArquivo[i], false);
+                    }
+                }
+
+                if(!clienteEncontrado){
+                    cout << "Cliente não encontrado! Verifique se digitou o CPF corretamente." << endl;
+                    pausaTela();
+                }
+            } else {
+                cout << "Nenhum cliente cadastrado!" << endl;
+                pausaTela();
+            }
+        }
+        static void excluirCliente(){
+            string cpfExcluir;
+            bool clienteEncontrado = false;
+            vector<Cliente> clientesDoArquivo;
+            limparTela();
+            cout << "** EXCLUIR CLIENTE **" << endl;
+            cout << "Digite o CPF do cliente: ";
+            cin >> cpfExcluir;
+            buscaClientes(clientesDoArquivo);
+            if(clientesDoArquivo.size() > 0){
+                for(size_t i=0; i<clientesDoArquivo.size(); i++){
+                    if(cpfExcluir == clientesDoArquivo[i].getCpf()){
+                        clienteEncontrado = true;
+                        char resposta;
+                        cout << "Confime novamente se deseja excluir (s/n): " << endl;
+                        cin >> resposta;
+                        if(resposta == 's') clientesDoArquivo.erase(clientesDoArquivo.begin() + i);
+                        else {
+                            pausaTela();
+                            break;
+                        }
+                    }
+                }
+                if(clienteEncontrado){
+                    salvarCliente(clientesDoArquivo[0], true);
+                    if(clientesDoArquivo.size() > 1){
+                        for(size_t i=1; i<clientesDoArquivo.size(); i++){
+                            salvarCliente(clientesDoArquivo[i], false);
+                        }
+                    }
+                } else {
+                    cout << "Cliente não encotrado! Verifique se digitou o CPF corretamente" << endl;
+                    pausaTela();
+                }
+            } else {
+                cout << "Nenhum cliente cadastrado!" << endl;
+                pausaTela();
+            }
+        }
+        static void listarClientes(){
+            vector<Cliente> clientesDoArquivo;
+            int tamNomeM = 0;
+            limparTela();
+            buscaClientes(clientesDoArquivo);
+            cout << "\t\t\t\t** LISTA DE CLIENTES **" << endl;
+            if(clientesDoArquivo.size() > 0){
+                tamNomeM = maiorNome(clientesDoArquivo);
+                cout << "CPF\t\t\t" << "NOME\t\t\t"  << "ENDEREÇO\t\t\t" << "TELEFONE\t" << "HABILITAÇÃO" << endl;
+                for(Cliente c : clientesDoArquivo){
+                    cout << "(" << c.getCpf() << ")\t" 
+                        << c.getNome() << setw(tamNomeM-c.getNome().length()) << "\t" 
+                        << c.getEndereco() << setw(tamNomeM-c.getEndereco().length()) << "\t\t" 
+                        << c.getTelefone() << "\t"
+                        << c.getHabilitacao() << endl;
+                }
+                pausaTela();
+            } else {
+                cout << "Nenhum cliente cadastrado!" << endl;
+                pausaTela();
+            }
+        }
 };
 class Funcionario : Usuario {
     private:
@@ -304,7 +500,7 @@ class Funcionario : Usuario {
                         Cliente::inserirCliente();
                         break;
                     case 2:
-                        Cliente::editarCliente(); // TODO criar essa função
+                        Cliente::editarCliente();
                         break;
                     case 3:
                         Cliente::excluirCliente(); // TODO criar essa função
@@ -486,11 +682,20 @@ static void limparTela(){
     system(LIMPAR);
 }
 static void pausaTela(){
+    cout << endl;
     system(PAUSE);
 }
-static void salvarCliente(Cliente novo){
+static int maiorNome(vector<Cliente>& clientes){
+    size_t maior = clientes[0].getNome().length();
+    for(Cliente c : clientes){
+        if(c.getNome().length() > maior) maior = c.getNome().length();
+    }
+    return maior;
+}
+static void salvarCliente(Cliente novo, bool sobrescrever){
     ofstream arquivo;
-    arquivo.open("clientes.txt", ios_base::app);
+    if(sobrescrever) arquivo.open("clientes.txt", ios_base::out);
+    else arquivo.open("clientes.txt", ios_base::app);
     if(arquivo.is_open()){
         arquivo << novo.getCpf() << "|";
         arquivo << novo.getNome() << "|";
@@ -498,41 +703,41 @@ static void salvarCliente(Cliente novo){
         arquivo << novo.getTelefone() << "|";
         arquivo << novo.getHabilitacao() << endl;
         arquivo.close();
+        cout << "Cliente cadastrado com sucesso!" << endl;
+    } else {
+        cout << "Erro ao abrir arquivo!" << endl;
+    }
+}
+static void buscaClientes(vector<Cliente>& clientes){
+    ifstream arquivo;
+    arquivo.open("./clientes.txt", ios_base::in);
+    if(arquivo.is_open()){
+        while(arquivo.eof()==false){
+            Cliente cliente;
+            string dadosCliente, delimiter = "|";
+            vector<string> dadosSeparado;
+            size_t pos;
+
+            getline(arquivo, dadosCliente);
+            if(!dadosCliente.empty()){
+                while ((pos = dadosCliente.find(delimiter)) != string::npos) {
+                    string token = dadosCliente.substr(0, pos);
+                    dadosSeparado.push_back(token);
+                    dadosCliente.erase(0, pos + delimiter.length());
+                }
+                dadosSeparado.push_back(dadosCliente);
+                cliente.setCpf(dadosSeparado[0]);
+                cliente.setNome(dadosSeparado[1]);
+                cliente.setEndereco(dadosSeparado[2]);
+                cliente.setTelefone(dadosSeparado[3]);
+                cliente.setHabilitacao(dadosSeparado[4]);
+                clientes.push_back(cliente);
+            }
+        }
+        arquivo.close();
+        
     } else {
         cout << "Erro ao abrir arquivo!" << endl;
         pausaTela();
     }
 }
-/*static void lerCliente(string identificador, Cliente &cliente, vector<Aluguel> &historicoAlugueis){
-    ifstream arquivo;
-    arquivo.open("clientes.txt", ios_base::in);
-    if(arquivo.is_open()){
-        string cpfCliente, nomeCliente, endCliente, telCliente, habiCliente;
-        getline(arquivo, cpfCliente);
-        getline(arquivo, nomeCliente);
-        getline(arquivo, endCliente);
-        getline(arquivo, telCliente);
-        getline(arquivo, habiCliente);
-        while (arquivo.eof()==false){
-            Aluguel aluguel;
-            string aluguelCliente;
-            getline(arquivo, aluguelCliente);
-            vector<string> dadosSeparado{};
-            string delimiter = "|";
-            size_t pos;
-            while ((pos = aluguelCliente.find(delimiter)) != string::npos) {
-                dadosSeparado.push_back(aluguelCliente.substr(0, pos));
-                aluguelCliente.erase(0, pos + delimiter.length());
-            }
-            if(identificador == cpfCliente) historicoAlugueis.push_back(aluguel);
-        }
-        if(identificador == cpfCliente){
-            cliente.setCpf(cpfCliente);
-            cliente.setNome(nomeCliente);
-            cliente.setEndereco(endCliente);
-            cliente.setTelefone(telCliente);
-            cliente.setHabilitacao(habiCliente);
-        }
-        arquivo.close();
-    }
-}*/
